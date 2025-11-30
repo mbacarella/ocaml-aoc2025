@@ -1,0 +1,6 @@
+_build
+*.native
+*.exe
+.merlin
+*.install
+_opam
