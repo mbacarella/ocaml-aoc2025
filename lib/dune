@@ -1,6 +1,7 @@
 (library
  (name aoc2025)
  (libraries core)
+ (inline_tests)
  (preprocess
   (pps ppx_jane) ; this is needed for a lot of the jane syntax extensions
   ))
