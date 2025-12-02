@@ -14,8 +14,6 @@ module Decoder = struct
     ;;
 
     let id_has_repeating_digits_v1 s =
-      Char.(s.[0] <> '0')
-      &&
       let len = String.length s in
       len mod 2 = 0
       &&
@@ -24,33 +22,30 @@ module Decoder = struct
       String.( = ) a b
     ;;
 
-    let chunk_string length s =
-      s |> String.to_list |> List.chunks_of ~length |> List.map ~f:String.of_char_list
-    ;;
-
     let id_has_repeating_digits_v2 s =
-      Char.(s.[0] <> '0')
-      &&
+      let chunk_string length =
+        s |> String.to_list |> List.chunks_of ~length |> List.map ~f:String.of_char_list
+      in
       let len = String.length s in
       let sizes = List.range ~start:`inclusive ~stop:`inclusive 1 (len / 2) in
       List.exists sizes ~f:(fun size ->
         len mod size = 0
         &&
-        match chunk_string size s with
+        match chunk_string size with
         | [] -> assert false
         | hd :: tl -> List.for_all tl ~f:(String.( = ) hd))
     ;;
 
-    let id_has_repeating_digits_v1 id = id_has_repeating_digits_v1 (Int.to_string id)
-    let id_has_repeating_digits_v2 id = id_has_repeating_digits_v2 (Int.to_string id)
+    let id_has_repeating_digits ~v2 id =
+      (if v2 then id_has_repeating_digits_v2 else id_has_repeating_digits_v1)
+        (Int.to_string id)
+    ;;
 
     let ids_with_repeating_digits ~v2 t =
       (*printf "processing range: %d-%d\n" t.start t.stop;*)
       let ids = List.range ~start:`inclusive ~stop:`inclusive t.start t.stop in
       List.fold_left ids ~init:[] ~f:(fun acc id ->
-        let has_repeats =
-          if v2 then id_has_repeating_digits_v2 id else id_has_repeating_digits_v1 id
-        in
+        let has_repeats = id_has_repeating_digits ~v2 id in
         (*printf "checking %d\n" id;*)
         (*if has_repeats then printf "%d has repeats\n" id;*)
         if has_repeats then id :: acc else acc)
