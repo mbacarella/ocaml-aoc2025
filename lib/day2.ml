@@ -14,16 +14,14 @@ module Decoder = struct
     ;;
 
     let id_has_repeating_digits_v1 s =
-      if Char.(s.[0] = '0')
-      then false
-      else (
-        let len = String.length s in
-        if len mod 2 <> 0
-        then false
-        else (
-          let a = String.sub s ~pos:0 ~len:(len / 2) in
-          let b = String.sub s ~pos:(len / 2) ~len:(len / 2) in
-          String.( = ) a b))
+      Char.(s.[0] <> '0')
+      &&
+      let len = String.length s in
+      len mod 2 = 0
+      &&
+      let a = String.sub s ~pos:0 ~len:(len / 2) in
+      let b = String.sub s ~pos:(len / 2) ~len:(len / 2) in
+      String.( = ) a b
     ;;
 
     let chunk_string length s =
