@@ -3,10 +3,10 @@
 ; So, every DayN .exe here just tends to run its counterpart in Aoc2025.DayN.cmd
 
 (executables
- (public_names day0 day1)
+ (public_names main)
  ; promote until-clean populates the compiled .exe into the source directory.
  ; I do this so I don't have to remember where it's created in _build, and also
  ; so I don't have to do `dune exec ./day1.exe` to run. just `./day1.exe`
  (promote (until-clean))
- (names day0 day1)
+ (names main)
  (libraries aoc2025 core_unix.command_unix))

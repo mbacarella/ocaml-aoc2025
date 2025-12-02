@@ -7,7 +7,7 @@ let main () =
 
 let cmd =
   Command.basic
-    ~summary:"AOC day 0"
+    ~summary:"day 0"
     (let%map_open.Command () = return () in
      fun () -> main ())
 ;;
