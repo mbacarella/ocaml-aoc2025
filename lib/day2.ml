@@ -26,35 +26,21 @@ module Decoder = struct
           String.( = ) a b))
     ;;
 
-    let chunk_string chunk_size s =
-      let len = String.length s in
-      let rec loop off acc =
-        if off >= len
-        then List.rev acc
-        else (
-          let this_chunk =
-            let remaining = len - off in
-            let size = if remaining >= chunk_size then chunk_size else remaining in
-            String.sub s ~pos:off ~len:size
-          in
-          loop (off + chunk_size) (this_chunk :: acc))
-      in
-      loop 0 []
+    let chunk_string length s =
+      s |> String.to_list |> List.chunks_of ~length |> List.map ~f:String.of_char_list
     ;;
 
     let id_has_repeating_digits_v2 s =
-      if Char.(s.[0] = '0')
-      then false
-      else (
-        let len = String.length s in
-        let sizes = List.range ~start:`inclusive ~stop:`inclusive 1 (len / 2) in
-        List.exists sizes ~f:(fun size ->
-          if len mod size <> 0
-          then false
-          else (
-            match chunk_string size s with
-            | [] -> assert false
-            | hd :: tl -> List.for_all tl ~f:(String.( = ) hd))))
+      Char.(s.[0] <> '0')
+      &&
+      let len = String.length s in
+      let sizes = List.range ~start:`inclusive ~stop:`inclusive 1 (len / 2) in
+      List.exists sizes ~f:(fun size ->
+        len mod size = 0
+        &&
+        match chunk_string size s with
+        | [] -> assert false
+        | hd :: tl -> List.for_all tl ~f:(String.( = ) hd))
     ;;
 
     let id_has_repeating_digits_v1 id = id_has_repeating_digits_v1 (Int.to_string id)
@@ -72,74 +58,73 @@ module Decoder = struct
         if has_repeats then id :: acc else acc)
     ;;
 
-    let leq a b =
-      let ls = List.sort ~compare:Int.compare in
-      List.equal Int.equal (ls a) (ls b)
-    ;;
+    let%test_module "test module" =
+      (module struct
+        let test ?(v2 = false) start stop =
+          let t = { start; stop } in
+          let ids = ids_with_repeating_digits ~v2 t in
+          ids
+          |> List.sort ~compare:Int.compare
+          |> List.map ~f:Int.to_string
+          |> String.concat ~sep:" "
+          |> print_endline
+        ;;
 
-    let test ?(v2 = false) start stop =
-      let t = { start; stop } in
-      let ids = ids_with_repeating_digits ~v2 t in
-      ids
-      |> List.sort ~compare:Int.compare
-      |> List.map ~f:Int.to_string
-      |> String.concat ~sep:" "
-      |> print_endline
-    ;;
+        let%expect_test "11-22" =
+          test 11 22;
+          [%expect "11 22"]
+        ;;
 
-    let%expect_test "11-22" =
-      test 11 22;
-      [%expect "11 22"]
-    ;;
+        let%expect_test "95-115" =
+          test 95 115;
+          [%expect "99"]
+        ;;
 
-    let%expect_test "95-115" =
-      test 95 115;
-      [%expect "99"]
-    ;;
+        let%expect_test "998-1012" =
+          test 998 1012;
+          [%expect "1010"]
+        ;;
 
-    let%expect_test "998-1012" =
-      test 998 1012;
-      [%expect "1010"]
-    ;;
+        let%expect_test "95-115 (v2)" =
+          test ~v2:true 95 115;
+          [%expect "99 111"]
+        ;;
 
-    let%expect_test "95-115 (v2)" =
-      test ~v2:true 95 115;
-      [%expect "99 111"]
-    ;;
+        let%expect_test "998-1012" =
+          test ~v2:true 998 1012;
+          [%expect "999 1010"]
+        ;;
 
-    let%expect_test "998-1012" =
-      test ~v2:true 998 1012;
-      [%expect "999 1010"]
-    ;;
+        let%expect_test "1188511880-1188511890" =
+          test 1188511880 1188511890;
+          [%expect "1188511885"]
+        ;;
 
-    let%expect_test "1188511880-1188511890" =
-      test 1188511880 1188511890;
-      [%expect "1188511885"]
-    ;;
+        let%expect_test "1188511880-1188511890" =
+          test ~v2:true 1188511880 1188511890;
+          [%expect "1188511885"]
+        ;;
 
-    let%expect_test "1188511880-1188511890" =
-      test ~v2:true 1188511880 1188511890;
-      [%expect "1188511885"]
-    ;;
+        let%expect_test "222220-222224" =
+          test 222220 222224;
+          [%expect "222222"]
+        ;;
 
-    let%expect_test "222220-222224" =
-      test 222220 222224;
-      [%expect "222222"]
-    ;;
+        let%expect_test "222220-222224" =
+          test ~v2:true 222220 222224;
+          [%expect "222222"]
+        ;;
 
-    let%expect_test "222220-222224" =
-      test ~v2:true 222220 222224;
-      [%expect "222222"]
-    ;;
+        let%expect_test "824824821-824824827" =
+          test 824824821 824824827;
+          [%expect ""]
+        ;;
 
-    let%expect_test "824824821-824824827" =
-      test 824824821 824824827;
-      [%expect ""]
-    ;;
-
-    let%expect_test "824824821-824824827" =
-      test ~v2:true 824824821 824824827;
-      [%expect "824824824"]
+        let%expect_test "824824821-824824827" =
+          test ~v2:true 824824821 824824827;
+          [%expect "824824824"]
+        ;;
+      end)
     ;;
   end
 
