@@ -219,7 +219,7 @@ let main ~input_file ~v2 () =
 
 let cmd =
   Command.basic
-    ~summary:"AOC day 1"
+    ~summary:"day 1"
     (let%map_open.Command input_file = anon ("input" %: string)
      and v2 = flag "v2" no_arg ~doc:"step 1 or 2" in
      fun () -> main ~input_file ~v2 ())
