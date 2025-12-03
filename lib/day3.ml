@@ -4,10 +4,7 @@ module Decoder = struct
   module Battery_bank = struct
     type t = int Array.t [@@deriving sexp]
 
-    let of_string s =
-      assert (String.length s > 2);
-      Array.init (String.length s) ~f:(fun i -> Char.get_digit_exn s.[i])
-    ;;
+    let of_string s = Array.init (String.length s) ~f:(fun i -> Char.get_digit_exn s.[i])
 
     let find_highest_joltage t =
       let len = Array.length t in
