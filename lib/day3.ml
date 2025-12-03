@@ -12,8 +12,9 @@ module Decoder = struct
     let find_highest_joltage t =
       let len = Array.length t in
       let rec aux ~pos ~sum ~digits_needed =
-        if digits_needed > 0
-        then (
+        match digits_needed with
+        | 0 -> sum
+        | digits_needed ->
           let big_digit_index = ref pos in
           for i = pos to pred (len - pred digits_needed) do
             if t.(i) > t.(!big_digit_index) then big_digit_index := i
@@ -21,8 +22,7 @@ module Decoder = struct
           aux
             ~pos:(succ !big_digit_index)
             ~sum:((sum * 10) + t.(!big_digit_index))
-            ~digits_needed:(pred digits_needed))
-        else sum
+            ~digits_needed:(pred digits_needed)
       in
       fun ~digits_needed -> aux ~pos:0 ~sum:0 ~digits_needed
     ;;
