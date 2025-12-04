@@ -37,8 +37,8 @@ module Decoder = struct
     ;;
 
     let id_has_repeating_digits ~v2 id =
-      (if v2 then id_has_repeating_digits_v2 else id_has_repeating_digits_v1)
-        (Int.to_string id)
+      let f = if v2 then id_has_repeating_digits_v2 else id_has_repeating_digits_v1 in
+      f (Int.to_string id)
     ;;
 
     let ids_with_repeating_digits ~v2 t =
