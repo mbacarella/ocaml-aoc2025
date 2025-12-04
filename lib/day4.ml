@@ -81,8 +81,13 @@ module Decoder = struct
   ;;
 
   let%expect_test "example" =
-    example_blob |> of_blob |> Rolls.get_accessible |> List.length |> printf "%d\n";
+    example_blob |> of_blob |> solve_v1 |> printf "%d\n";
     [%expect "13"]
+  ;;
+
+  let%expect_test "example" =
+    example_blob |> of_blob |> solve_v2 |> printf "%d\n";
+    [%expect "43"]
   ;;
 
   let process_file ~v2 file_name =
