@@ -28,9 +28,6 @@ module Decoder = struct
     let all_ingredients =
       lst |> List.drop_while ~f:pred |> List.tl_exn |> List.map ~f:Int.of_string
     in
-    List.iter fresh_ranges ~f:(fun range ->
-      printf "checking %s\n" (Range.to_string range);
-      assert (range.start < range.stop));
     { fresh_ranges; all_ingredients }
   ;;
 
@@ -99,8 +96,7 @@ module Decoder = struct
   let%expect_test "dump" =
     example_blob |> of_blob |> sexp_of_t |> Sexp.to_string |> print_endline;
     [%expect
-      "((ranges(((start 3)(stop 5))((start 10)(stop 14))((start 16)(stop 20))((start \
-       12)(stop 18))))(all_ingredients(1 5 8 11 17 32)))"]
+      "((fresh_ranges(((start 3)(stop 5))((start 10)(stop 14))((start 16)(stop 20))((start 12)(stop 18))))(all_ingredients(1 5 8 11 17 32)))"]
   ;;
 
   let%expect_test "example" =
@@ -110,7 +106,20 @@ module Decoder = struct
 
   let%expect_test "example2" =
     example_blob |> of_blob |> solve_v2 |> printf "%d\n";
-    [%expect "3"]
+    [%expect " 
+ coal 10-14 with 12-18
+ new fragment 10-18
+ new list after one pass: 16-20 10-18 3-5
+ 3 vs 4
+ coal 10-18 with 16-20
+ new fragment 10-20
+ new list after one pass: 10-20 3-5
+ 2 vs 3
+ new list after one pass: 10-20 3-5
+ 2 vs 2
+ final list: 3-5 10-20
+ 14
+ "]
   ;;
 
   let process_file ~v2 file_name =
