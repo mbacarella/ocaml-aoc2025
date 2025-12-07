@@ -222,7 +222,7 @@ module Decoder = struct
     let max_line_length = succ num_cols in
     let num_rows = String.length grid / max_line_length in
     let col_nums = ref [] in
-    List.range (num_cols - 1) 0 ~stride:(-1) ~stop:`inclusive
+    List.range (pred num_cols) 0 ~stride:(-1) ~stop:`inclusive
     |> List.fold_left ~init:0 ~f:(fun overall_sum col ->
       let num = ref 0 in
       let c = ref ' ' in
