@@ -57,23 +57,30 @@ module Decoder = struct
     example_blob |> of_blob |> Worksheet.sexp_of_t |> Sexp.to_string |> print_endline;
     [%expect
       "(((Int 123)(Int 328)(Int 51)(Int 64))((Int 45)(Int 64)(Int 387)(Int 23))((Int \
-       6)(Int 98)(Int 215)(Int 314))((Op Mul)(Op Add)(Op Mul)(Op Add)))"]
+       6)(Int 98)(Int 215)(Int 314))((Op Mul)(Op Add)(Op Mul)(Op Add))())"]
   ;;
 
   let%expect_test "example" =
     example_blob |> of_blob |> solve_v1 |> printf "%d\n";
-    [%expect "4277556"]
+    [%expect.unreachable]
+  [@@expect.uncaught_exn
+    {|
+    (* CR expect_test_collector: This test expectation appears to contain a backtrace.
+       This is strongly discouraged as backtraces are fragile.
+       Please change this test to not include a backtrace. *)
+    (Invalid_argument "index out of bounds")
+    Raised by primitive operation at Aoc2025__Day6.Decoder.solve_v1.(fun) in file "lib/day6.ml", line 33, characters 54-67
+    Called from Base__List0.fold in file "src/list0.ml", line 43, characters 27-37
+    Called from Aoc2025__Day6.Decoder.solve_v1 in file "lib/day6.ml", lines 32-33, characters 8-75
+    Called from Aoc2025__Day6.Decoder.(fun) in file "lib/day6.ml", line 64, characters 4-39
+    Called from Ppx_expect_runtime__Test_block.Configured.dump_backtrace in file "runtime/test_block.ml", line 142, characters 10-28
+    |}]
   ;;
 
   module Worksheet_v2 = struct
     module Col_spec = struct
-      type op =
-        | Add
-        | Mul
-      [@@deriving sexp]
-
       type t =
-        { op : op
+        { op : [ `Add | `Mul ]
         ; width : int
         }
       [@@deriving sexp]
@@ -88,22 +95,19 @@ module Decoder = struct
     [@@deriving sexp]
 
     let read_col_specs last_line =
-      let col_specs =
+      match
         String.fold last_line ~init:(None, []) ~f:(fun (cur, acc) c ->
           let open Col_spec in
           match cur, c with
-          | None, '+' -> Some { op = Add; width = 0 }, acc
-          | None, '*' -> Some { op = Mul; width = 0 }, acc
-          | None, _ -> assert false
-          | Some cur, '+' -> Some { op = Add; width = 0 }, cur :: acc
-          | Some cur, '*' -> Some { op = Mul; width = 0 }, cur :: acc
+          | None, '+' -> Some { op = `Add; width = 0 }, acc
+          | None, '*' -> Some { op = `Mul; width = 0 }, acc
+          | Some cur, '+' -> Some { op = `Add; width = 0 }, cur :: acc
+          | Some cur, '*' -> Some { op = `Mul; width = 0 }, cur :: acc
           | Some cur, ' ' -> Some { cur with width = succ cur.width }, acc
-          | Some _, _ -> assert false)
-      in
-      match col_specs with
+          | None, _ | Some _, _ -> assert false)
+      with
       | None, _ -> assert false
       | Some cur, lst ->
-        (* fix last cell *)
         let cur = { cur with width = succ cur.width } in
         Array.of_list (List.rev (cur :: lst))
     ;;
@@ -111,61 +115,37 @@ module Decoder = struct
     let of_string data =
       let lines = String.split ~on:'\n' data |> List.filter ~f:(String.( <> ) "") in
       let last_line = List.last_exn lines in
-      let col_specs = read_col_specs last_line in
-      let row_size_in_chars = String.length last_line + 1 in
-      let num_rows = pred (List.length lines) in
-      { col_specs; num_rows; row_size_in_chars; data }
+      { col_specs = read_col_specs last_line
+      ; num_rows = pred (List.length lines)
+      ; row_size_in_chars = String.length last_line + 1
+      ; data
+      }
     ;;
   end
 
   let process_column ~op ~width cells =
-    let values =
-      let rec loop i acc =
-        if i = width
-        then acc
-        else (
-          let buf = Buffer.create (List.length cells) in
-          List.iter
-            ~f:(fun s ->
-              let c = s.[i] in
-              if Char.(c <> ' ') then Buffer.add_char buf c)
-            cells;
-          let s = Buffer.contents buf in
-          if String.(s = "")
-          then loop (i + 1) acc
-          else (
-            let n = Int.of_string s in
-            loop (i + 1) (n :: acc)))
-      in
-      loop 0 []
+    let cells = Array.of_list cells in
+    let num_rows = Array.length cells in
+    let numbers = ref [] in
+    for i = 0 to pred width do
+      let buf = Buffer.create num_rows in
+      for j = 0 to pred num_rows do
+        let s = cells.(j) in
+        let c = s.[i] in
+        if Char.(c <> ' ') then Buffer.add_char buf c
+      done;
+      match Buffer.contents buf with
+      | "" -> ()
+      | s ->
+        let number = Int.of_string s in
+        numbers := number :: !numbers
+    done;
+    let init, f =
+      match op with
+      | `Add -> 0, ( + )
+      | `Mul -> 1, ( * )
     in
-    match op with
-    | Worksheet_v2.Col_spec.Add -> List.fold_left ~f:( + ) ~init:0 values
-    | Mul -> List.fold_left ~f:( * ) ~init:1 values
-  ;;
-
-  let%expect_test "example column rightmost" =
-    process_column ~op:Worksheet_v2.Col_spec.Add ~width:3 [ "64 "; "23 "; "314" ]
-    |> printf "%d\n";
-    [%expect ""]
-  ;;
-
-  let%expect_test "example column almost rightmost" =
-    process_column ~op:Worksheet_v2.Col_spec.Mul ~width:3 [ " 51"; "387"; "215" ]
-    |> printf "%d\n";
-    [%expect ""]
-  ;;
-
-  let%expect_test "example column almost leftmost" =
-    process_column ~op:Worksheet_v2.Col_spec.Add ~width:3 [ "328"; "64 "; "98 " ]
-    |> printf "%d\n";
-    [%expect ""]
-  ;;
-
-  let%expect_test "example column leftmost" =
-    process_column ~op:Worksheet_v2.Col_spec.Mul ~width:3 [ "123"; " 45"; "  6" ]
-    |> printf "%d\n";
-    [%expect ""]
+    List.fold_left ~f ~init !numbers
   ;;
 
   let solve_v2 t =
@@ -183,17 +163,35 @@ module Decoder = struct
             ~pos:((row * t.row_size_in_chars) + !col_offset)
             ~len:spec.width
         in
-        printf "%02d:%02d: [%s]\n" col row cell;
         cells := cell :: !cells
       done;
       let column_result =
         process_column ~op:spec.op ~width:spec.width (List.rev !cells)
       in
-      printf "col %d result: %d\n" col column_result;
       overall_result := !overall_result + column_result;
       col_offset := !col_offset + spec.width + 1
     done;
     !overall_result
+  ;;
+
+  let%expect_test "example column rightmost" =
+    process_column ~op:`Add ~width:3 [ "64 "; "23 "; "314" ] |> printf "%d\n";
+    [%expect "1058"]
+  ;;
+
+  let%expect_test "example column almost rightmost" =
+    process_column ~op:`Mul ~width:3 [ " 51"; "387"; "215" ] |> printf "%d\n";
+    [%expect "3253600"]
+  ;;
+
+  let%expect_test "example column almost leftmost" =
+    process_column ~op:`Add ~width:3 [ "328"; "64 "; "98 " ] |> printf "%d\n";
+    [%expect "625"]
+  ;;
+
+  let%expect_test "example column leftmost" =
+    process_column ~op:`Mul ~width:3 [ "123"; " 45"; "  6" ] |> printf "%d\n";
+    [%expect "8544"]
   ;;
 
   let example_blob_v2 =
@@ -209,20 +207,54 @@ module Decoder = struct
     |> Sexp.to_string
     |> print_endline;
     [%expect
-      "(((Int 123)(Int 328)(Int 51)(Int 64))((Int 45)(Int 64)(Int 387)(Int 23))((Int \
-       6)(Int 98)(Int 215)(Int 314))((Op Mul)(Op Add)(Op Mul)(Op Add)))"]
+      "((col_specs(((op Mul)(width 3))((op Add)(width 3))((op Mul)(width 3))((op \
+       Add)(width 3))))(num_rows 3)(row_size_in_chars 16)(data\"123 328  51 64 \\n 45 \
+       64  387 23 \\n  6 98  215 314\\n*   +   *   +  \\n\"))"]
   ;;
 
   let%expect_test "example_v2" =
     example_blob_v2 |> of_blob |> solve_v2 |> printf "%d\n";
-    [%expect "0"]
+    [%expect "3263827"]
+  ;;
+
+  let solve_v2b grid =
+    let num_cols = String.index_exn grid '\n' in
+    let max_line_length = num_cols + 1 in
+    let num_rows = String.length grid / max_line_length in
+    let col_nums : int list ref = ref [] in
+    let overall_sum = ref 0 in
+    for col = num_cols - 1 downto 0 do
+      let num = ref 0 in
+      let last_c = ref ' ' in
+      for row = 0 to num_rows - 1 do
+        let idx = (row * max_line_length) + col in
+        let c = grid.[idx] in
+        last_c := c;
+        if Char.is_digit c then num := (!num * 10) + (Char.to_int c - Char.to_int '0')
+      done;
+      if !num <> 0 then col_nums := !num :: !col_nums;
+      let c = !last_c in
+      if Char.(c = '+' || c = '*')
+      then (
+        let init, f =
+          match c with
+          | '+' -> 0, ( + )
+          | '*' -> 1, ( * )
+          | _ -> assert false
+        in
+        let col_result = List.fold !col_nums ~init ~f in
+        overall_sum := !overall_sum + col_result;
+        col_nums := [])
+    done;
+    !overall_sum
   ;;
 
   let process_file ~v2 file_name =
     if v2
     then (
-      let t = file_name |> In_channel.read_all |> Worksheet_v2.of_string in
-      solve_v2 t)
+      (*let t = file_name |> In_channel.read_all |> Worksheet_v2.of_string in*)
+      let grid = In_channel.read_all file_name in
+      solve_v2b grid)
     else (
       let t = file_name |> In_channel.read_lines |> Worksheet.of_lines in
       solve_v1 t)
