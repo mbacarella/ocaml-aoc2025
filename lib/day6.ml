@@ -222,8 +222,8 @@ module Decoder = struct
     let max_line_length = succ num_cols in
     let num_rows = String.length grid / max_line_length in
     let col_nums = ref [] in
-    let overall_sum = ref 0 in
-    for col = num_cols - 1 downto 0 do
+    List.range (num_cols - 1) 0 ~stride:(-1) ~stop:`inclusive
+    |> List.fold_left ~init:0 ~f:(fun overall_sum col ->
       let num = ref 0 in
       let c = ref ' ' in
       for row = 0 to num_rows - 1 do
@@ -231,19 +231,13 @@ module Decoder = struct
         if Char.is_digit !c then num := (!num * 10) + (Char.to_int !c - Char.to_int '0')
       done;
       if !num <> 0 then col_nums := !num :: !col_nums;
-      if Char.(!c = '+' || !c = '*')
-      then (
-        let init, f =
-          match !c with
-          | '+' -> 0, ( + )
-          | '*' -> 1, ( * )
-          | _ -> assert false
-        in
+      match !c with
+      | '+' | '*' ->
+        let init, f = if Char.(!c = '+') then 0, ( + ) else 1, ( * ) in
         let col_result = List.fold !col_nums ~init ~f in
-        overall_sum := !overall_sum + col_result;
-        col_nums := [])
-    done;
-    !overall_sum
+        col_nums := [];
+        overall_sum + col_result
+      | _ -> overall_sum)
   ;;
 
   let process_file ~v2 file_name =
