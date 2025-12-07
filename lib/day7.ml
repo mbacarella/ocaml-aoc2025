@@ -55,40 +55,37 @@ module Decoder = struct
   let solve_gen t =
     let row_length = Array.length t.(0) in
     let num_splits = ref 0 in
-    for i = 1 to pred (Array.length t) do
+    for i = 1 to Array.length t - 1 do
       let row = t.(i) in
-      let prev_row = t.(pred i) in
-      for j = 0 to pred row_length do
+      let prev_row = t.(i - 1) in
+      for j = 0 to row_length - 1 do
         let open Diagram.Cell_state in
-        match row.(j) with
-        | Empty ->
-          (match prev_row.(j) with
-           | Start -> row.(j) <- Tachyon 1
-           | Tachyon routes -> row.(j) <- Tachyon routes
-           | Splitter | Empty -> ())
-        | Start -> assert false
-        | Tachyon _ -> ()
-        | Splitter ->
-          (match prev_row.(j) with
-           | Empty -> ()
-           | Splitter | Start -> assert false
-           | Tachyon routes ->
-             incr num_splits;
-             if pred j >= 0
-             then (
-               let route_above = routes_or_zero prev_row.(pred j) in
-               match row.(pred j) with
-               | Empty -> row.(pred j) <- Tachyon (routes + route_above)
-               | Tachyon routes' -> row.(pred j) <- Tachyon (routes + routes')
-               | _ -> assert false);
-             if succ j <= pred row_length
-             then (
-               let route_above = routes_or_zero prev_row.(succ j) in
-               match row.(succ j) with
-               | Empty -> row.(succ j) <- Tachyon (routes + route_above)
-               | Tachyon routes' ->
-                 row.(succ j) <- Tachyon (routes + routes' + route_above)
-               | _ -> assert false))
+        match row.(j), prev_row.(j) with
+        | Empty, Start -> row.(j) <- Tachyon 1
+        | Empty, Tachyon routes -> row.(j) <- Tachyon routes
+        | Empty, (Splitter | Empty) -> ()
+        | Start, _ -> assert false
+        | Tachyon _, _ -> ()
+        | Splitter, Empty -> ()
+        | Splitter, (Splitter | Start) -> assert false
+        | Splitter, Tachyon routes ->
+          incr num_splits;
+          let left = pred j in
+          let right = succ j in
+          if left >= 0
+          then (
+            let above = routes_or_zero prev_row.(left) in
+            match row.(left) with
+            | Empty -> row.(left) <- Tachyon (routes + above)
+            | Tachyon routes' -> row.(left) <- Tachyon (routes + routes')
+            | _ -> assert false);
+          if right <= row_length
+          then (
+            let above = routes_or_zero prev_row.(right) in
+            match row.(right) with
+            | Empty -> row.(right) <- Tachyon (routes + above)
+            | Tachyon routes' -> row.(right) <- Tachyon (routes + routes' + above)
+            | _ -> assert false)
       done
     done;
     !num_splits, t
