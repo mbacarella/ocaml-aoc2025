@@ -71,7 +71,6 @@ module Decoder = struct
         | Splitter, Tachyon routes ->
           incr num_splits;
           let left = pred j in
-          let right = succ j in
           if left >= 0
           then (
             let above = routes_or_zero prev_row.(left) in
@@ -79,6 +78,7 @@ module Decoder = struct
             | Empty -> row.(left) <- Tachyon (routes + above)
             | Tachyon routes' -> row.(left) <- Tachyon (routes + routes')
             | _ -> assert false);
+          let right = succ j in
           if right <= row_length
           then (
             let above = routes_or_zero prev_row.(right) in
