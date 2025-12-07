@@ -219,25 +219,22 @@ module Decoder = struct
 
   let solve_v2b grid =
     let num_cols = String.index_exn grid '\n' in
-    let max_line_length = num_cols + 1 in
+    let max_line_length = succ num_cols in
     let num_rows = String.length grid / max_line_length in
-    let col_nums : int list ref = ref [] in
+    let col_nums = ref [] in
     let overall_sum = ref 0 in
     for col = num_cols - 1 downto 0 do
       let num = ref 0 in
-      let last_c = ref ' ' in
+      let c = ref ' ' in
       for row = 0 to num_rows - 1 do
-        let idx = (row * max_line_length) + col in
-        let c = grid.[idx] in
-        last_c := c;
-        if Char.is_digit c then num := (!num * 10) + (Char.to_int c - Char.to_int '0')
+        c := grid.[(row * max_line_length) + col];
+        if Char.is_digit !c then num := (!num * 10) + (Char.to_int !c - Char.to_int '0')
       done;
       if !num <> 0 then col_nums := !num :: !col_nums;
-      let c = !last_c in
-      if Char.(c = '+' || c = '*')
+      if Char.(!c = '+' || !c = '*')
       then (
         let init, f =
-          match c with
+          match !c with
           | '+' -> 0, ( + )
           | '*' -> 1, ( * )
           | _ -> assert false
