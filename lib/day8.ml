@@ -35,7 +35,7 @@ end
 module Circuit = struct
   type t = Box.t Set.Poly.t [@@deriving sexp, compare]
 
-  let is_part_of t box = Set.mem t box
+  let mem t box = Set.mem t box
   let add t box = Set.add t box
 
   let create p q =
@@ -80,7 +80,7 @@ let join_circuits =
 let add_circuit circuits p q =
   let already_added =
     List.exists circuits ~f:(fun circuit ->
-      Circuit.is_part_of circuit p && Circuit.is_part_of circuit q)
+      Circuit.mem circuit p && Circuit.mem circuit q)
   in
   if already_added
   then circuits
@@ -89,7 +89,7 @@ let add_circuit circuits p q =
     let changes = ref false in
     let circuits =
       List.map circuits ~f:(fun circuit ->
-        match Circuit.is_part_of circuit p, Circuit.is_part_of circuit q with
+        match Circuit.mem circuit p, Circuit.mem circuit q with
         | false, false -> circuit
         | true, false ->
           changes := true;
@@ -141,37 +141,30 @@ let solve_v1 ?(first_n_pairs = 1000) t =
   product_of_first_3
 ;;
 
-let add_or_merge circuits p q =
-  if
-    List.exists circuits ~f:(fun circuit ->
-      Circuit.is_part_of circuit p && Circuit.is_part_of circuit q)
-  then circuits
+let add_or_merge cs p q =
+  if List.exists cs ~f:(fun c -> Circuit.mem c p && Circuit.mem c q)
+  then cs (* already merged in *)
   else (
-    let matches, others =
-      List.partition_tf circuits ~f:(fun c ->
-        Circuit.is_part_of c p || Circuit.is_part_of c q)
+    let matches, rest =
+      List.partition_tf cs ~f:(fun c -> Circuit.mem c p || Circuit.mem c q)
     in
-    let merged = List.fold matches ~init:(Circuit.create p q) ~f:Set.union in
-    merged :: others)
+    let merged = List.fold_left matches ~init:(Circuit.create p q) ~f:Set.union in
+    merged :: rest)
 ;;
 
 let solve_v2 boxes =
-  let total_boxes = List.length boxes in
+  let total = List.length boxes in
   let sorted_pairs =
-    boxes
-    |> unordered_pairs
+    unordered_pairs boxes
     |> List.map ~f:(fun (p, q) -> Box.dist p q, (p, q))
     |> List.sort ~compare:(fun (a, _) (b, _) -> Float.compare a b)
   in
-  let rec loop circuits lst =
-    match lst with
+  let rec loop circuits = function
     | [] -> assert false
     | (_d, (p, q)) :: tl ->
-      let circuits' = add_or_merge circuits p q in
-      (match circuits' with
-       | [ final_circuit ] when Set.length final_circuit = total_boxes ->
-         let final_x_product = p.Box.x *. q.x in
-         Float.to_int final_x_product
+      (match add_or_merge circuits p q with
+       | [ final_circuit ] when Set.length final_circuit = total ->
+         Float.to_int (p.Box.x *. q.x)
        | circuits -> loop circuits tl)
   in
   loop [] sorted_pairs
