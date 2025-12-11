@@ -13,6 +13,7 @@ let cmd () =
     ; "day8", Day8.cmd
     ; "day9", Day9.cmd
     ; "day10", Day10.cmd
+    ; "day11", Day11.cmd
     ]
 ;;
 

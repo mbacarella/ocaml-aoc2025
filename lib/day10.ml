@@ -1,5 +1,7 @@
 open! Core
 
+(** THESE SOLUTIONS ARE BAD AND DON'T WORK PLEASE DISREGARD **)
+
 let bitmaskstr n =
   if n = 0
   then "0"
@@ -13,6 +15,7 @@ module Spec = struct
   type t =
     { indicator : int
     ; toggles : int list
+    ; jolts : int list
     }
   [@@deriving sexp]
 
@@ -41,11 +44,21 @@ module Spec = struct
   ;;
 
   let of_line line =
-    let line, _ =
-      (* drop the joltage {…} part for now *)
+    (* split off {…} for jolts *)
+    let line, jolts =
       match String.lsplit2 line ~on:'{' with
-      | Some (a, _) -> a, ()
-      | None -> line, ()
+      | Some (a, rest) ->
+        let inside, _ = String.lsplit2_exn rest ~on:'}' in
+        let jolts =
+          inside
+          |> String.split ~on:','
+          |> List.filter ~f:(fun s -> not (String.is_empty (String.strip s)))
+          |> List.map ~f:(fun s -> Int.of_string (String.strip s))
+        in
+        a, jolts
+      | None ->
+        (* shouldn't happen for real input, but keep it harmless *)
+        line, []
     in
     let lb = String.index_exn line '[' in
     let rb = String.index_exn line ']' in
@@ -63,7 +76,7 @@ module Spec = struct
         let inside, _ = String.lsplit2_exn s ~on:')' in
         toggle_masks inside)
     in
-    { indicator; toggles }
+    { indicator; toggles; jolts }
   ;;
 end
 
@@ -115,7 +128,79 @@ let solve_v1 specs =
       steps + acc)
 ;;
 
-let solve_v2 _specs = assert false
+let solve_spec_v2 (spec : Spec.t) : int =
+  let target = Array.of_list spec.jolts in
+  let pr a =
+    a |> Array.to_list |> List.map ~f:Int.to_string |> String.concat ~sep:","
+  in
+  printf "target: %s\n" (pr target);
+  let num_counters = Array.length target in
+  if num_counters = 0
+  then 0
+  else (
+    let buttons =
+      List.map spec.toggles ~f:(fun mask ->
+        let idxs = ref [] in
+        for i = 0 to num_counters - 1 do
+          if mask land (1 lsl i) <> 0 then idxs := i :: !idxs
+        done;
+        Array.of_list !idxs)
+      |> Array.of_list
+    in
+    let start_state = Array.create ~len:num_counters 0 in
+    let module Q = Queue in
+    let q = Q.create () in
+    let visited = Hashtbl.Poly.create () in
+    let num_checks = ref 0 in
+    let is_goal state =
+      incr num_checks;
+      if !num_checks mod 1000 = 0
+      then printf "checking: %s                 \r" (pr state);
+      Stdlib.( = ) state target
+    in
+    Q.enqueue q (Array.copy start_state, 0);
+    Hashtbl.Poly.set visited ~key:(Array.copy start_state) ~data:();
+    let rec loop () =
+      match Q.dequeue q with
+      | None -> failwith "no solution found for v2"
+      | Some (state, steps) ->
+        if is_goal state
+        then steps
+        else (
+          Array.iter buttons ~f:(fun idxs ->
+            let next = Array.copy state in
+            let overshoot = ref false in
+            let len = Array.length idxs in
+            let k = ref 0 in
+            while !k < len && not !overshoot do
+              let i = idxs.(!k) in
+              let v = next.(i) + 1 in
+              if v > target.(i) then overshoot := true else next.(i) <- v;
+              incr k
+            done;
+            if not !overshoot
+            then
+              if not (Hashtbl.Poly.mem visited next)
+              then (
+                Hashtbl.Poly.set visited ~key:(Array.copy next) ~data:();
+                Q.enqueue q (next, steps + 1)));
+          loop ())
+    in
+    loop ())
+;;
+
+let solve_v2 specs =
+  (*
+     List.map specs ~f:(fun spec -> List.length spec.Spec.jolts, spec)
+  |> List.sort ~compare:(fun a b -> Int.compare (fst a) (fst b))
+  |> List.map ~f:snd
+  *)
+  specs
+  |> List.foldi ~init:0 ~f:(fun i acc (spec : Spec.t) ->
+    let steps = solve_spec_v2 spec in
+    printf "%d: %d steps\n%!" i steps;
+    acc + steps)
+;;
 
 let of_lines lst =
   List.filter lst ~f:(String.( <> ) "") |> List.map ~f:Spec.of_line
@@ -132,20 +217,36 @@ let of_blob b = String.split ~on:'\n' b |> of_lines
 let%expect_test "solve v1" =
   let specs = example_blob |> of_blob in
   solve_v1 specs |> printf "%d\n";
-  [%expect ""]
+  [%expect
+    " \n\
+    \ 0: 2 steps for 110: 1000,1010,100,1100,101,11\n\
+    \ 1: 3 steps for 1000: 11101,1100,10001,111,11110\n\
+    \ 2: 2 steps for 101110: 11111,11001,110111,110\n\
+    \ 7\n\
+    \ "]
 ;;
 
-(*
-   let%expect_test "solve v2" =
+let%expect_test "solve v2" =
   let specs = example_blob |> of_blob in
   solve_v2 specs |> printf "%d\n";
-  [%expect ""]
+  [%expect
+    " \n\
+    \ target: 3,5,4,7\n\
+    \ 0: 10 steps\n\
+    \ target: 7,5,12,7,2\n\
+    \ 1: 12 steps\n\
+    \ target: 10,11,11,5,10,5\n\
+    \ 2: 11 steps\n\
+    \ 33\n\
+    \ "]
 ;;
-*)
 
 let%expect_test "dump" =
   example_blob |> of_blob |> sexp_of_t |> Sexp.to_string |> print_endline;
-  [%expect ""]
+  [%expect
+    "(((indicator 6)(toggles(8 10 4 12 5 3))(jolts(3 5 4 7)))((indicator \
+     8)(toggles(29 12 17 7 30))(jolts(7 5 12 7 2)))((indicator 46)(toggles(31 \
+     25 55 6))(jolts(10 11 11 5 10 5))))"]
 ;;
 
 let process_file ~v2 file_name =
