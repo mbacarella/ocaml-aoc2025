@@ -15,34 +15,34 @@ module Graph = struct
   ;;
 
   let of_lines lst =
-    String.Table.of_alist_multi
-      (List.concat_map lst ~f:(fun line ->
-         let node, neighbors = of_line line in
-         List.map neighbors ~f:(fun n -> node, n)))
+    List.concat_map lst ~f:(fun line ->
+      let node, neighbors = of_line line in
+      List.map neighbors ~f:(fun n -> node, n))
+    |> String.Table.of_alist_multi
   ;;
 end
 
-let solve_gen ~p2 ~start ~finish t =
+let solve_gen start t =
   let memo = Hashtbl.Poly.create () in
   let rec count node ~dac_seen ~fft_seen =
     let dac_seen = dac_seen || String.(node = "dac") in
     let fft_seen = fft_seen || String.(node = "fft") in
-    let state = node, dac_seen, fft_seen in
-    Hashtbl.find_or_add memo state ~default:(fun () ->
-      if String.( = ) node finish
+    let key = node, dac_seen, fft_seen in
+    Hashtbl.find_or_add memo key ~default:(fun () ->
+      if String.(node = "out")
       then Bool.to_int (dac_seen && fft_seen)
       else (
         let neighbors = Hashtbl.find_exn t node in
         List.fold neighbors ~init:0 ~f:(fun acc neighbor ->
           acc + count neighbor ~dac_seen ~fft_seen)))
   in
-  if p2
-  then count start ~dac_seen:false ~fft_seen:false
-  else count start ~dac_seen:true ~fft_seen:true
+  function
+  | `p2 -> count start ~dac_seen:false ~fft_seen:false
+  | `p1 -> count start ~dac_seen:true ~fft_seen:true
 ;;
 
-let solve_v1 = solve_gen ~p2:false ~start:"you" ~finish:"out"
-let solve_v2 = solve_gen ~p2:true ~start:"svr" ~finish:"out"
+let solve_v1 t = solve_gen "you" t `p1
+let solve_v2 t = solve_gen "svr" t `p2
 
 let example_blob =
   "aaa: you hhh\n\
