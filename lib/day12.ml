@@ -4,21 +4,13 @@ module Present_shape = struct
   type t = bool Array.t Array.t [@@deriving sexp]
 
   let of_lines lines : t =
-    match lines with
-    | index :: tl ->
-      let _index = String.chop_suffix_exn index ~suffix:":" in
-      let t =
-        Array.of_list tl
-        |> Array.map ~f:(fun row ->
-          String.to_array row
-          |> Array.map ~f:(function
-            | '#' -> true
-            | '.' -> false
-            | _ -> assert false))
-      in
-      assert (Array.length t = 3);
-      t
-    | _ -> assert false
+    Array.of_list (List.tl_exn lines)
+    |> Array.map ~f:(fun row ->
+      String.to_array row
+      |> Array.map ~f:(function
+        | '#' -> true
+        | '.' -> false
+        | _ -> assert false))
   ;;
 end
 
@@ -44,7 +36,7 @@ module Tree_spec = struct
   ;;
 end
 
-type t = Present_shape.t Array.t * Tree_spec.t list [@@deriving sexp]
+type t = Present_shape.t list * Tree_spec.t list [@@deriving sexp]
 
 let of_lines lst =
   let lst = List.filter lst ~f:(String.( <> ) "") in
@@ -52,22 +44,18 @@ let of_lines lst =
     List.take lst (4 * 6)
     |> List.chunks_of ~length:4
     |> List.map ~f:Present_shape.of_lines
-    |> Array.of_list
   in
-  let specs = List.drop lst (4 * 6) in
-  shapes, List.map specs ~f:Tree_spec.of_line
+  shapes, List.drop lst (4 * 6) |> List.map ~f:Tree_spec.of_line
 ;;
 
-let solve_v1 t =
-  (* this was a trick. just doing basic reject filtering works *)
-  List.filter (snd t) ~f:(fun (tree : Tree_spec.t) ->
-    let tree_area = tree.height * tree.width in
+let solve_v1 (_shapes, trees) =
+  List.fold trees ~init:0 ~f:(fun num_fits tree ->
+    let tree_area = tree.Tree_spec.height * tree.width in
     let max_possible_present_area =
       Array.fold tree.present_counts ~init:0 ~f:(fun acc present_count ->
         acc + (present_count * 9))
     in
-    tree_area >= max_possible_present_area)
-  |> List.length
+    num_fits + Bool.to_int (tree_area >= max_possible_present_area))
 ;;
 
 let solve_v2 _ = 0
@@ -112,14 +100,6 @@ let%expect_test "dump" =
 let%expect_test "solve v1" =
   let g = example_blob |> of_blob in
   solve_v1 g |> printf "%d\n";
-  [%expect "0"]
-;;
-
-let example_blob2 = ""
-
-let%expect_test "solve v2" =
-  let g = example_blob2 |> of_blob in
-  solve_v2 g |> printf "%d\n";
   [%expect "0"]
 ;;
 
